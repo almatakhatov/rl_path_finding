@@ -1,56 +1,44 @@
-import random
-from grids import grid_simple
+import time
+from grids import grid_simple, grid_medium, grid_hard
 from environment import GridEnvironment
+from mc_control import MonteCarloControl
 
 
-def test_environment_full():
-    print("=== Phase 1 Environment Test ===")
+def run_experiment():
+    print("=== Monte Carlo Path Finding Experiment ===")
 
-    env = GridEnvironment(grid_simple())
+    # choose grid
+    grid = grid_hard()
+    env = GridEnvironment(grid)
 
-    state = env.reset()
-    print(f"Initial state: {state}")
-    assert env.grid[state[1], state[0]] == 3, "Agent did not start on start line"
-    assert state[2] == 0 and state[3] == 0, "Initial velocity not zero"
+    # create MC controller
+    mc = MonteCarloControl(actions=env.actions)
 
-    for step in range(500):
-        action = random.choice(env.actions)
-        next_state, reward, done = env.step(action)
+    # training parameters
+    num_episodes = 5000
+    epsilon = 0.3
+    epsilon_decay = 0.995
 
-        x, y, vx, vy = next_state
+    start_time = time.time()
 
-        print(
-            f"Step {step:03d} | "
-            f"Action={action} | "
-            f"State={next_state} | "
-            f"Reward={reward} | "
-            f"Done={done}"
-        )
+    episode_lengths = mc.train(
+        env,
+        num_episodes=num_episodes,
+        epsilon=epsilon,
+        epsilon_decay=epsilon_decay
+    )
 
-        # reward must always be -1
-        assert reward == -1, "Reward is not -1"
+    end_time = time.time()
 
-        # velocity bounds check
-        assert abs(vx) <= env.max_velocity, "vx exceeds max velocity"
-        assert abs(vy) <= env.max_velocity, "vy exceeds max velocity"
+    print("\n=== Training completed ===")
+    print(f"Episodes: {num_episodes}")
+    print(f"Training time: {end_time - start_time:.2f} seconds")
+    print(f"Final Q-table size: {len(mc.Q)}")
+    print(f"Average episode length (last 100): "
+          f"{sum(episode_lengths[-100:]) / 100:.1f}")
 
-        # zero velocity allowed only on start line
-        if vx == 0 and vy == 0:
-            assert env.grid[y, x] == 3, "(0,0) velocity off start line"
-
-        # position must always be inside grid
-        assert 0 <= x < env.width, "x out of bounds"
-        assert 0 <= y < env.height, "y out of bounds"
-
-        if done:
-            print("\nTarget reached. Episode terminated correctly.")
-            break
-
-    else:
-        print("\nTarget not reached within 500 random steps (this is OK).")
-
-    print("=== Phase 1 Test Completed ===")
+    return episode_lengths, mc
 
 
 if __name__ == "__main__":
-    test_environment_full()
+    run_experiment()
