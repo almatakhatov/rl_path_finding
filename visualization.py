@@ -1,34 +1,23 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import os
 
 EMPTY = 0
 OBSTACLE = 1
 TARGET = 2
 START = 3
 
-def extract_greedy_path(env, mc, max_steps=500):
-    """
-    Follow the greedy policy (epsilon = 0) and record the path.
-    Returns list of (x, y) positions.
-    """
+
+def extract_greedy_path(env, mc, max_steps=1000):
     state = env.reset()
     path = [(state[0], state[1])]
 
     for _ in range(max_steps):
-        # choose best action
-        q_values = []
-        for action in env.actions:
-            q_values.append(mc.Q[(state, action)])
+        q_values = [mc.Q[(state, a)] for a in env.actions]
+        best_action = env.actions[int(np.argmax(q_values))]
 
-        max_q = max(q_values)
-        best_actions = [
-            action for action, q in zip(env.actions, q_values)
-            if q == max_q
-        ]
-
-        action = best_actions[0]  # deterministic greedy
-        next_state, reward, done = env.step(action)
-
+        next_state, _, done = env.step(best_action)
         state = next_state
         path.append((state[0], state[1]))
 
@@ -37,7 +26,8 @@ def extract_greedy_path(env, mc, max_steps=500):
 
     return path
 
-def plot_grid_with_path(grid, path, title="Learned Path", save_path=None):
+
+def plot_grid_with_path(grid, path, title, save_path):
     grid = np.array(grid)
 
     plt.figure(figsize=(6, 6))
@@ -46,30 +36,21 @@ def plot_grid_with_path(grid, path, title="Learned Path", save_path=None):
     xs = [p[0] for p in path]
     ys = [p[1] for p in path]
 
-    plt.plot(xs, ys, color="red", linewidth=2, label="Path")
-    plt.scatter(xs[0], ys[0], color="green", s=100, label="Start")
-    plt.scatter(xs[-1], ys[-1], color="blue", s=100, label="Target")
+    plt.plot(xs, ys, color="red", linewidth=2, label="Learned path")
+    plt.scatter(xs[0], ys[0], c="green", s=80, label="Start")
+    plt.scatter(xs[-1], ys[-1], c="blue", s=80, label="Target")
 
     plt.title(title)
     plt.legend()
+    plt.grid(True)
+
     plt.gca().invert_yaxis()
-    plt.grid(True)
 
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
 
-def plot_training_curve(episode_lengths, title="Training Curve", save_path=None):
-    plt.figure(figsize=(8, 4))
-    plt.plot(episode_lengths)
-    plt.xlabel("Episode")
-    plt.ylabel("Episode Length")
-    plt.title(title)
-    plt.grid(True)
 
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
-
-    plt.close()
-
+def save_experiment_table(results, save_path):
+    df = pd.DataFrame(results)
+    df.to_csv(save_path, index=False)
+    return df
